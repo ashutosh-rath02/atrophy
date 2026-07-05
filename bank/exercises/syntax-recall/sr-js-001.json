@@ -1,0 +1,18 @@
+{
+  "id": "sr-js-001",
+  "axis": "syntax-recall",
+  "language": "javascript",
+  "tier": 1,
+  "title": "Count vowels",
+  "prompt": "Write countVowels(s) that returns how many vowels (a, e, i, o, u — case-insensitive)\nappear in the string s.\n\nExamples:\n  countVowels(\"hello\") -> 2\n  countVowels(\"XYZ\") -> 0",
+  "functionName": "countVowels",
+  "starterCode": "function countVowels(s) {\n  // your code\n}\n\nmodule.exports = { countVowels };\n",
+  "softTimeLimitSeconds": 180,
+  "tests": [
+    { "args": ["hello"], "expected": 2 },
+    { "args": ["XYZ"], "expected": 0 },
+    { "args": [""], "expected": 0 },
+    { "args": ["AEIOU aeiou"], "expected": 10 },
+    { "args": ["rhythm"], "expected": 0 }
+  ]
+}

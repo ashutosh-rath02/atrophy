@@ -1,0 +1,18 @@
+{
+  "id": "sr-py-003",
+  "axis": "syntax-recall",
+  "language": "python",
+  "tier": 2,
+  "title": "Chunk a list",
+  "prompt": "Write chunk(lst, n) that splits lst into consecutive sublists of length n (n >= 1).\nThe final chunk may be shorter.\n\nExamples:\n  chunk([1, 2, 3, 4, 5], 2) -> [[1, 2], [3, 4], [5]]\n  chunk([], 3) -> []",
+  "functionName": "chunk",
+  "starterCode": "def chunk(lst, n):\n    pass\n",
+  "softTimeLimitSeconds": 300,
+  "tests": [
+    { "args": [[1, 2, 3, 4, 5], 2], "expected": [[1, 2], [3, 4], [5]] },
+    { "args": [[], 3], "expected": [] },
+    { "args": [[1, 2, 3], 3], "expected": [[1, 2, 3]] },
+    { "args": [[1, 2, 3], 5], "expected": [[1, 2, 3]] },
+    { "args": [["a", "b", "c", "d"], 1], "expected": [["a"], ["b"], ["c"], ["d"]] }
+  ]
+}

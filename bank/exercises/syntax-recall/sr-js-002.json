@@ -1,0 +1,17 @@
+{
+  "id": "sr-js-002",
+  "axis": "syntax-recall",
+  "language": "javascript",
+  "tier": 2,
+  "title": "Zip two arrays",
+  "prompt": "Write zip(a, b) that returns an array of [a[i], b[i]] pairs, stopping at the\nshorter array's length.\n\nExamples:\n  zip([1, 2, 3], [\"a\", \"b\"]) -> [[1, \"a\"], [2, \"b\"]]\n  zip([], [1]) -> []",
+  "functionName": "zip",
+  "starterCode": "function zip(a, b) {\n  // your code\n}\n\nmodule.exports = { zip };\n",
+  "softTimeLimitSeconds": 300,
+  "tests": [
+    { "args": [[1, 2, 3], ["a", "b"]], "expected": [[1, "a"], [2, "b"]] },
+    { "args": [[], [1]], "expected": [] },
+    { "args": [[1], [2]], "expected": [[1, 2]] },
+    { "args": [["x", "y"], [true, false, true]], "expected": [["x", true], ["y", false]] }
+  ]
+}

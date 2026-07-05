@@ -1,0 +1,18 @@
+{
+  "id": "sr-py-004",
+  "axis": "syntax-recall",
+  "language": "python",
+  "tier": 3,
+  "title": "Deep flatten",
+  "prompt": "Write flatten(nested) that deep-flattens arbitrarily nested lists into one flat list,\npreserving left-to-right order. Non-list values pass through unchanged.\n\nExamples:\n  flatten([1, [2, [3, [4]]], 5]) -> [1, 2, 3, 4, 5]\n  flatten([[], [[]], 1]) -> [1]",
+  "functionName": "flatten",
+  "starterCode": "def flatten(nested):\n    pass\n",
+  "softTimeLimitSeconds": 420,
+  "tests": [
+    { "args": [[1, [2, [3, [4]]], 5]], "expected": [1, 2, 3, 4, 5] },
+    { "args": [[[], [[]], 1]], "expected": [1] },
+    { "args": [[]], "expected": [] },
+    { "args": [["a", ["b", ["c"]]]], "expected": ["a", "b", "c"] },
+    { "args": [[[1, 2], [3, 4]]], "expected": [1, 2, 3, 4] }
+  ]
+}

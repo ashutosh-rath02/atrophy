@@ -1,0 +1,17 @@
+{
+  "id": "sr-py-002",
+  "axis": "syntax-recall",
+  "language": "python",
+  "tier": 2,
+  "title": "Group words by first letter",
+  "prompt": "Write group_by_first(words) that returns a dict mapping each lowercase first letter\nto the list of words (in input order) starting with that letter, case-insensitive.\nSkip empty strings.\n\nExample:\n  group_by_first([\"apple\", \"Avocado\", \"banana\"]) -> {\"a\": [\"apple\", \"Avocado\"], \"b\": [\"banana\"]}",
+  "functionName": "group_by_first",
+  "starterCode": "def group_by_first(words):\n    pass\n",
+  "softTimeLimitSeconds": 300,
+  "tests": [
+    { "args": [["apple", "Avocado", "banana"]], "expected": { "a": ["apple", "Avocado"], "b": ["banana"] } },
+    { "args": [[]], "expected": {} },
+    { "args": [["", "x"]], "expected": { "x": ["x"] } },
+    { "args": [["Zed", "zoo", "Ant"]], "expected": { "z": ["Zed", "zoo"], "a": ["Ant"] } }
+  ]
+}
