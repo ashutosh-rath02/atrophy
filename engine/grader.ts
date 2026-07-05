@@ -1,6 +1,11 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Exercise } from "../bank/schema.js";
+import type {
+  ClozeExercise,
+  CodeExercise,
+  OutlineExercise,
+  PredictExercise,
+} from "../bank/schema.js";
 import { run } from "./runner.js";
 
 export interface TestFailure {
@@ -21,7 +26,8 @@ export interface GradeResult {
 
 const RESULT_MARKER = "ATROPHY_RESULT ";
 
-export function solutionFileName(ex: Exercise): string {
+export function solutionFileName(ex: CodeExercise | OutlineExercise): string {
+  if (ex.kind === "outline") return "outline.md";
   return ex.language === "python" ? "solution.py" : "solution.js";
 }
 
@@ -30,7 +36,7 @@ export function pythonCommand(): string {
   return process.platform === "win32" ? "python" : "python3";
 }
 
-function pythonHarness(ex: Exercise): string {
+function pythonHarness(ex: CodeExercise): string {
   const tests = JSON.stringify(ex.tests);
   return `import importlib.util, json, sys, traceback
 
@@ -71,7 +77,7 @@ print("ATROPHY_RESULT " + json.dumps({"passed": passed, "total": len(tests),
 `;
 }
 
-function nodeHarness(ex: Exercise): string {
+function nodeHarness(ex: CodeExercise): string {
   const tests = JSON.stringify(ex.tests);
   return `const path = require("node:path");
 let fn;
@@ -118,7 +124,7 @@ emit({ passed, total, failures });
  * Grade the solution file sitting in `dir` against the exercise's hidden tests.
  * Writes the language harness next to it and runs it in a subprocess.
  */
-export async function grade(ex: Exercise, dir: string): Promise<GradeResult> {
+export async function grade(ex: CodeExercise, dir: string): Promise<GradeResult> {
   const isPy = ex.language === "python";
   const harnessName = isPy ? "__atrophy_harness__.py" : "__atrophy_harness__.cjs";
   writeFileSync(join(dir, harnessName), isPy ? pythonHarness(ex) : nodeHarness(ex), "utf8");
@@ -159,4 +165,59 @@ export async function grade(ex: Exercise, dir: string): Promise<GradeResult> {
     };
   }
   return JSON.parse(line.slice(RESULT_MARKER.length)) as GradeResult;
+}
+
+/** Canonicalize program output: CRLF→LF, strip per-line trailing space + outer blank lines. */
+export function normalizeOutput(s: string): string {
+  return s
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((l) => l.trimEnd())
+    .join("\n")
+    .trim();
+}
+
+export interface PredictionResult {
+  correct: boolean;
+  /** The snippet's real stdout (ground truth), when it ran cleanly. */
+  actual?: string;
+  /** The snippet itself failed to run — a bank bug, not a user mistake. */
+  error?: string;
+}
+
+/**
+ * Grade a code-reading prediction: run the snippet for ground truth and
+ * compare normalized stdout. Nothing to hand-maintain, nothing to drift.
+ */
+export async function gradePrediction(
+  ex: PredictExercise,
+  dir: string,
+  prediction: string,
+): Promise<PredictionResult> {
+  const isPy = ex.language === "python";
+  const file = isPy ? "snippet.py" : "snippet.js";
+  writeFileSync(join(dir, file), ex.snippet, "utf8");
+  const cmd = isPy ? pythonCommand() : process.execPath;
+  let result;
+  try {
+    result = await run(cmd, [file], { cwd: dir, timeoutMs: ex.testTimeoutMs });
+  } catch (err) {
+    return { correct: false, error: `could not start ${cmd}: ${(err as Error).message}` };
+  }
+  if (result.timedOut || result.exitCode !== 0) {
+    const detail = result.timedOut ? "timed out" : result.stderr.trim().slice(0, 500);
+    return { correct: false, error: `snippet failed to run (${detail}) — please report this exercise` };
+  }
+  const actual = normalizeOutput(result.stdout);
+  return { correct: actual === normalizeOutput(prediction), actual };
+}
+
+/** Trim + collapse inner whitespace; cloze answers stay case-sensitive (API names are). */
+export function normalizeClozeAnswer(s: string): string {
+  return s.trim().replace(/\s+/g, " ");
+}
+
+export function gradeCloze(ex: ClozeExercise, answer: string): boolean {
+  const norm = normalizeClozeAnswer(answer);
+  return ex.acceptedAnswers.some((a) => normalizeClozeAnswer(a) === norm);
 }
