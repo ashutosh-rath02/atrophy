@@ -4,7 +4,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pc from "picocolors";
-import { AXES, loadBank, type Axis, type Language } from "../bank/schema.js";
+import { AXES, loadBank, type Axis, type Exercise, type Language } from "../bank/schema.js";
 import { selectExercise } from "../engine/select.js";
 import { runDrill } from "../engine/session.js";
 import {
@@ -44,9 +44,25 @@ function parseAxis(value: string): Axis {
   return value as Axis;
 }
 
+/** The axis most in need of a rep: never-tested first, then stalest. */
+function dueAxis(store: Store, bank: Exercise[]): Axis {
+  const available = AXES.filter((a) => bank.some((ex) => ex.axis === a));
+  let best: Axis = available[0] ?? "syntax-recall";
+  let bestTime = Infinity;
+  for (const a of available) {
+    const r = store.getRating(a);
+    const t = r.updatedAt ? Date.parse(r.updatedAt) : -1;
+    if (t < bestTime) {
+      bestTime = t;
+      best = a;
+    }
+  }
+  return best;
+}
+
 async function drillOnce(store: Store, flags: DrillFlags): Promise<boolean> {
   const bank = loadBank(bankDir());
-  const axis = flags.axis ? parseAxis(flags.axis) : "syntax-recall";
+  const axis = flags.axis ? parseAxis(flags.axis) : dueAxis(store, bank);
   const language = flags.lang as Language | undefined;
   const mode = flags.aiOn ? "ai-on" : "ai-off";
 
@@ -145,6 +161,14 @@ function stats(store: Store): void {
     console.log(pc.dim("\n  No reps yet. Run ") + pc.cyan("atrophy baseline") + pc.dim(" to set your unaided baseline."));
   } else {
     console.log(pc.dim("\n  RD widens while you coast — that's confidence decaying, not the score."));
+    const last = store.lastDrillTs();
+    const idleDays = last ? (Date.now() - Date.parse(last)) / 86_400_000 : Infinity;
+    if (idleDays > 3) {
+      console.log(
+        pc.yellow(`  ⚠ ${Math.floor(idleDays)} days since your last unaided rep.`) +
+          pc.dim(" 2–3x/week keeps the baseline honest — run ") + pc.cyan("atrophy drill") + pc.dim("."),
+      );
+    }
   }
   console.log();
 }

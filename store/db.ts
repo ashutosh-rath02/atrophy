@@ -127,6 +127,16 @@ export class Store {
       .all(axis, limit);
   }
 
+  /** Timestamp of the most recent unaided rep across all axes (for the nag). */
+  lastDrillTs(): string | null {
+    const row = this.db
+      .prepare<[], { ts: string }>(
+        "SELECT ts FROM sessions WHERE mode = 'ai-off' ORDER BY ts DESC LIMIT 1",
+      )
+      .get();
+    return row?.ts ?? null;
+  }
+
   allSessions(): SessionRow[] {
     return this.db
       .prepare<[], SessionRow>("SELECT * FROM sessions ORDER BY ts ASC, id ASC")
