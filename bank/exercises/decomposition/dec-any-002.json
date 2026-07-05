@@ -1,0 +1,17 @@
+{
+  "id": "dec-any-002",
+  "kind": "outline",
+  "axis": "decomposition",
+  "language": "any",
+  "tier": 2,
+  "title": "Design a per-user rate limiter",
+  "prompt": "Outline an approach for a per-user API rate limiter (N requests per minute).\nName your algorithm, the per-user state you keep and where it lives,\nand how limits reset. 5-10 bullets, no code.",
+  "softTimeLimitSeconds": 480,
+  "rubric": [
+    "Named a concrete algorithm (fixed window, sliding window, token bucket, leaky bucket)",
+    "Specified per-user state and where it lives (memory/Redis) plus TTL/cleanup",
+    "Described the accept/reject decision path for each incoming request",
+    "Addressed burst behavior or window-boundary effects of the chosen algorithm",
+    "Mentioned response semantics (429, Retry-After) or multi-instance concerns"
+  ]
+}

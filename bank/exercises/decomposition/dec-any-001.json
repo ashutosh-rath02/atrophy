@@ -1,0 +1,17 @@
+{
+  "id": "dec-any-001",
+  "kind": "outline",
+  "axis": "decomposition",
+  "language": "any",
+  "tier": 1,
+  "title": "Design a URL shortener",
+  "prompt": "Outline (pseudocode or bullets) how you'd build a URL shortener:\nshorten(long_url) -> code and resolve(code) -> long_url.\nCover ID generation, storage, collisions, and what breaks at scale. 5-10 bullets, no code.",
+  "softTimeLimitSeconds": 480,
+  "rubric": [
+    "Chose an ID/encoding strategy (counter+base62, hash+collision check, or random-with-retry)",
+    "Defined storage mapping code -> url (and a dedup/reverse-lookup decision)",
+    "Handled collisions or explained why uniqueness is guaranteed",
+    "Considered the read-heavy access pattern (caching, redirects)",
+    "Covered failure/edge cases (invalid URL, unknown code, expiry)"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "dec-any-003",
+  "kind": "outline",
+  "axis": "decomposition",
+  "language": "any",
+  "tier": 3,
+  "title": "Design a one-way folder sync",
+  "prompt": "Outline a one-way folder sync tool (source -> backup) that minimizes copying.\nHow do you detect changes, handle deletes and renames, and recover from a crash\nmid-sync? 6-12 bullets, no code.",
+  "softTimeLimitSeconds": 600,
+  "rubric": [
+    "Change detection strategy (mtime+size, content hashes, or a persisted manifest)",
+    "Explicit handling of deletions in the target (mirror vs preserve — a stated decision)",
+    "Rename/move detection, or a conscious choice to treat them as delete+create",
+    "Crash safety: atomic writes, temp-then-rename, or a resumable journal",
+    "A comparison plan that avoids re-reading/re-hashing everything on each run",
+    "Conflict/edge handling (permissions, symlinks, files changing mid-copy)"
+  ]
+}
