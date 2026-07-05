@@ -1,5 +1,6 @@
 {
   "id": "sr-py-003",
+  "kind": "write",
   "axis": "syntax-recall",
   "language": "python",
   "tier": 2,

@@ -19,29 +19,85 @@ export const testCaseSchema = z.object({
   expected: z.unknown(),
 });
 
-export const exerciseSchema = z.object({
+const baseFields = {
   id: z.string().regex(/^[a-z]+-[a-z]+-\d{3}$/, "id must look like sr-py-001"),
   axis: z.enum(AXES),
-  language: z.enum(LANGUAGES),
   /** Difficulty tier: 1 (easy) to 3 (hard). */
   tier: z.number().int().min(1).max(3),
   title: z.string().min(1),
   /** Shown to the user before the drill starts. */
   prompt: z.string().min(1),
-  /** Name of the function the harness will call. */
-  functionName: z.string().min(1),
-  /** Written into the solution file the user edits. */
-  starterCode: z.string().min(1),
   /** Soft limit in seconds; going over shrinks the score, never blocks. */
   softTimeLimitSeconds: z.number().int().positive(),
-  /** Hard timeout for one grading run of the hidden tests. */
+  /** Hard timeout for one grading/snippet run. */
   testTimeoutMs: z.number().int().positive().default(10_000),
+};
+
+/** Kinds where the user edits code that gets run against hidden tests. */
+const codeFields = {
+  ...baseFields,
+  language: z.enum(LANGUAGES),
+  /** Name of the function the harness will call. */
+  functionName: z.string().min(1),
+  /** Written into the solution file the user edits (for "fix": the buggy code). */
+  starterCode: z.string().min(1),
   tests: z.array(testCaseSchema).min(1),
-});
+};
+
+export const exerciseSchema = z.discriminatedUnion("kind", [
+  /** Syntax recall: write a function from spec. */
+  z.object({ kind: z.literal("write"), ...codeFields }),
+  /** Debugging: starterCode contains a planted bug; make the tests pass. */
+  z.object({ kind: z.literal("fix"), ...codeFields }),
+  /** Code reading: predict the snippet's exact stdout (ground truth is computed by running it). */
+  z.object({
+    kind: z.literal("predict-output"),
+    ...baseFields,
+    language: z.enum(LANGUAGES),
+    snippet: z.string().min(1),
+  }),
+  /** API/stdlib memory: fill the ____ blank in the snippet. */
+  z.object({
+    kind: z.literal("cloze"),
+    ...baseFields,
+    language: z.enum(LANGUAGES),
+    snippet: z.string().min(1),
+    acceptedAnswers: z.array(z.string().min(1)).min(1),
+  }),
+  /** Decomposition: outline an approach, self-scored against a rubric (LLM-judged in v2). */
+  z.object({
+    kind: z.literal("outline"),
+    ...baseFields,
+    language: z.literal("any"),
+    rubric: z.array(z.string().min(1)).min(1),
+  }),
+]);
 
 export type Exercise = z.infer<typeof exerciseSchema>;
+export type CodeExercise = Extract<Exercise, { kind: "write" | "fix" }>;
+export type PredictExercise = Extract<Exercise, { kind: "predict-output" }>;
+export type ClozeExercise = Extract<Exercise, { kind: "cloze" }>;
+export type OutlineExercise = Extract<Exercise, { kind: "outline" }>;
 export type Axis = (typeof AXES)[number];
 export type Language = (typeof LANGUAGES)[number];
+
+export function isCode(ex: Exercise): ex is CodeExercise {
+  return ex.kind === "write" || ex.kind === "fix";
+}
+
+/** How many gradable units the exercise has (drives passed/total bookkeeping). */
+export function totalUnits(ex: Exercise): number {
+  switch (ex.kind) {
+    case "write":
+    case "fix":
+      return ex.tests.length;
+    case "predict-output":
+    case "cloze":
+      return 1;
+    case "outline":
+      return ex.rubric.length;
+  }
+}
 
 export class BankError extends Error {}
 

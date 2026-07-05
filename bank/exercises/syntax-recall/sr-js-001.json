@@ -1,5 +1,6 @@
 {
   "id": "sr-js-001",
+  "kind": "write",
   "axis": "syntax-recall",
   "language": "javascript",
   "tier": 1,
