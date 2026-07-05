@@ -1,0 +1,245 @@
+#!/usr/bin/env node
+import { Command } from "commander";
+import { existsSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import pc from "picocolors";
+import { AXES, loadBank, type Axis, type Language } from "../bank/schema.js";
+import { selectExercise } from "../engine/select.js";
+import { runDrill } from "../engine/session.js";
+import {
+  freshness,
+  nextTier,
+  updateRating,
+  type Freshness,
+  type RatingState,
+} from "../engine/scoring.js";
+import { Store } from "../store/db.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+function bankDir(): string {
+  if (process.env.ATROPHY_BANK) return process.env.ATROPHY_BANK;
+  const candidates = [
+    join(__dirname, "..", "bank", "exercises"), // tsx dev: cli/../bank
+    join(__dirname, "..", "..", "bank", "exercises"), // built: dist/cli/../../bank
+  ];
+  const found = candidates.find((c) => existsSync(c));
+  if (!found) throw new Error("exercise bank not found — set ATROPHY_BANK");
+  return found;
+}
+
+interface DrillFlags {
+  axis?: string;
+  lang?: string;
+  solution?: string;
+  aiOn?: boolean;
+}
+
+function parseAxis(value: string): Axis {
+  if (!(AXES as readonly string[]).includes(value)) {
+    console.error(pc.red(`unknown axis "${value}" — one of: ${AXES.join(", ")}`));
+    process.exit(1);
+  }
+  return value as Axis;
+}
+
+async function drillOnce(store: Store, flags: DrillFlags): Promise<boolean> {
+  const bank = loadBank(bankDir());
+  const axis = flags.axis ? parseAxis(flags.axis) : "syntax-recall";
+  const language = flags.lang as Language | undefined;
+  const mode = flags.aiOn ? "ai-on" : "ai-off";
+
+  const current = store.getRating(axis);
+  const recent = store.recentSessions(axis, 3).map((s) => s.exercise_id);
+  const ex = selectExercise(bank, axis, current.tier, recent, language);
+  if (!ex) {
+    console.error(pc.red(`no exercises in the bank for axis "${axis}"${flags.lang ? ` (${flags.lang})` : ""} yet`));
+    return false;
+  }
+
+  const outcome = await runDrill(ex, flags.solution);
+  if (outcome.abandoned) {
+    console.log(pc.dim("\nAbandoned — nothing recorded. The rep only counts if you take it."));
+    return true;
+  }
+
+  // AI-on sessions are recorded for the divergence chart but never touch the
+  // unaided rating (PLAN §3.1 — the killer chart is the gap).
+  let after: RatingState = current;
+  if (mode === "ai-off") {
+    after = updateRating(current, ex.tier, outcome.score);
+    const lastScores = [outcome.score, ...store.recentSessions(axis, 1).map((s) => s.score)];
+    const tier = nextTier(current.tier, lastScores);
+    store.saveRating(axis, after, tier);
+    if (tier > current.tier) console.log(pc.magenta(`\n▲ promoted to tier ${tier}`));
+    if (tier < current.tier) console.log(pc.dim(`\n▼ dropped back to tier ${tier}`));
+  }
+
+  store.recordSession({
+    ts: new Date().toISOString(),
+    exercise_id: ex.id,
+    axis,
+    language: ex.language,
+    tier: ex.tier,
+    mode,
+    passed: outcome.passed,
+    total: outcome.total,
+    elapsed_seconds: outcome.elapsedSeconds,
+    score: outcome.score,
+    rating_before: current.rating,
+    rating_after: after.rating,
+  });
+
+  const delta = after.rating - current.rating;
+  const deltaStr = delta >= 0 ? pc.green(`+${delta.toFixed(0)}`) : pc.red(delta.toFixed(0));
+  console.log(
+    `\nScore ${pc.bold(outcome.score.toFixed(2))}` +
+      ` · ${axis} rating ${current.rating.toFixed(0)} → ${pc.bold(after.rating.toFixed(0))} (${deltaStr})` +
+      (mode === "ai-on" ? pc.dim("  [ai-on: recorded, rating untouched]") : ""),
+  );
+  return true;
+}
+
+const FRESHNESS_BADGE: Record<Freshness, string> = {
+  fresh: pc.green("● fresh"),
+  aging: pc.yellow("◐ aging"),
+  cracking: pc.magenta("◍ cracking"),
+  stale: pc.red("○ stale"),
+};
+
+function daysAgo(iso: string | null): string {
+  if (!iso) return "never";
+  const days = (Date.now() - Date.parse(iso)) / 86_400_000;
+  if (days < 1) return "today";
+  if (days < 2) return "yesterday";
+  return `${Math.floor(days)}d ago`;
+}
+
+function stats(store: Store): void {
+  const rows = AXES.map((axis) => ({ axis, ...store.getRating(axis) }));
+  const anyReps = rows.some((r) => r.reps > 0);
+  console.log(pc.bold("\n  Atrophy — unaided skill baseline\n"));
+  const header = ["axis".padEnd(16), "rating".padStart(7), "±RD".padStart(5), "reps".padStart(5), "tier".padStart(5), "last rep".padStart(10), "  state"];
+  console.log(pc.dim("  " + header.join("  ")));
+  for (const r of rows) {
+    const untested = r.reps === 0;
+    // Wide RD in the first few reps means "still calibrating", not "decayed".
+    const state = untested
+      ? pc.dim("untested")
+      : r.reps < 5 && freshness(r.rd) !== "fresh"
+        ? pc.cyan("◌ calibrating")
+        : FRESHNESS_BADGE[freshness(r.rd)];
+    const line = [
+      r.axis.padEnd(16),
+      (untested ? "—" : r.rating.toFixed(0)).padStart(7),
+      (untested ? "—" : r.rd.toFixed(0)).padStart(5),
+      String(r.reps).padStart(5),
+      String(r.tier).padStart(5),
+      daysAgo(r.updatedAt).padStart(10),
+      "  " + state,
+    ].join("  ");
+    console.log("  " + (untested ? pc.dim(line) : line));
+  }
+  if (!anyReps) {
+    console.log(pc.dim("\n  No reps yet. Run ") + pc.cyan("atrophy baseline") + pc.dim(" to set your unaided baseline."));
+  } else {
+    console.log(pc.dim("\n  RD widens while you coast — that's confidence decaying, not the score."));
+  }
+  console.log();
+}
+
+function exportJson(store: Store, out?: string): void {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    ratings: store.allRatings(),
+    sessions: store.allSessions(),
+  };
+  const json = JSON.stringify(payload, null, 2);
+  if (out) {
+    writeFileSync(out, json, "utf8");
+    console.log(`wrote ${out}`);
+  } else {
+    console.log(json);
+  }
+}
+
+async function baseline(store: Store, flags: DrillFlags): Promise<void> {
+  const bank = loadBank(bankDir());
+  const axesWithExercises = AXES.filter((a) => bank.some((ex) => ex.axis === a));
+  console.log(
+    pc.bold("Baseline session") +
+      ` — one unaided drill per axis (${axesWithExercises.length} available today).`,
+  );
+  for (const axis of axesWithExercises) {
+    const ok = await drillOnce(store, { ...flags, axis });
+    if (!ok) break;
+  }
+  stats(store);
+}
+
+const program = new Command();
+program
+  .name("atrophy")
+  .description("Measure what your brain is losing while AI does your work.")
+  .version("0.1.0");
+
+program
+  .command("drill")
+  .description("run one unaided micro-drill (5–10 min)")
+  .option("-a, --axis <axis>", `skill axis: ${AXES.join(", ")}`)
+  .option("-l, --lang <language>", "python or javascript")
+  .option("--ai-on", "monthly comparison rep WITH your AI tools (plots the gap, never touches your unaided rating)")
+  .option("--solution <file>", "non-interactive: grade this file as the submission (scripting/tests)")
+  .action(async (flags: DrillFlags) => {
+    const store = new Store();
+    try {
+      const ok = await drillOnce(store, flags);
+      if (!ok) process.exitCode = 1;
+    } finally {
+      store.close();
+    }
+  });
+
+program
+  .command("baseline")
+  .description("initial ~25 min session: one drill per axis, AI off")
+  .option("-l, --lang <language>", "python or javascript")
+  .action(async (flags: DrillFlags) => {
+    const store = new Store();
+    try {
+      await baseline(store, flags);
+    } finally {
+      store.close();
+    }
+  });
+
+program
+  .command("stats")
+  .description("per-axis ratings, confidence decay, and recency")
+  .action(() => {
+    const store = new Store();
+    try {
+      stats(store);
+    } finally {
+      store.close();
+    }
+  });
+
+program
+  .command("export")
+  .description("dump ratings + sessions as JSON (feeds the dashboard)")
+  .option("-o, --out <file>", "write to file instead of stdout")
+  .action((flags: { out?: string }) => {
+    const store = new Store();
+    try {
+      exportJson(store, flags.out);
+    } finally {
+      store.close();
+    }
+  });
+
+program.parseAsync().catch((err) => {
+  console.error(pc.red(String(err instanceof Error ? err.message : err)));
+  process.exit(1);
+});
