@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atrophy — leaderboard</title>
+<style>
+  :root {
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e;
+    --muted: #898781; --grid: #e1e0d9; --border: rgba(11,11,11,0.10); --series-1: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
+      --muted: #898781; --grid: #2c2c2a; --border: rgba(255,255,255,0.10); --series-1: #3987e5;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 28px 20px 60px; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 650; }
+  .sub { color: var(--ink-2); margin: 4px 0 20px; }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 14px; border-top: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  thead th { border-top: none; color: var(--ink-2); font-weight: 600; font-size: 12px; }
+  td.num, th.num { text-align: right; }
+  td.rank { color: var(--muted); width: 3em; }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 12px; }
+  .state { color: var(--ink-2); padding: 30px 0; text-align: center; }
+  a { color: var(--series-1); }
+  code { background: var(--page); border: 1px solid var(--grid); border-radius: 4px; padding: 1px 6px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Atrophy leaderboard</h1>
+  <div class="sub">Unaided-skill ratings, self-reported and opt-in. Overall = mean across all five axes (untested axes count as the 1200 start).</div>
+  <div id="content"><div class="state">Loading…</div></div>
+  <div class="note">
+    Join it: <code>npm i -g atrophy</code>, do 5 unaided reps, then <code>atrophy publish --handle you</code>.
+    Honor system by design — the only person you can cheat is yourself.
+    <a href="https://github.com/ashutosh-rath02/atrophy">Source</a> · <a href="./">demo dashboard</a>
+  </div>
+</div>
+<script>
+"use strict";
+const API = "https://atrophy-leaderboard.PLACEHOLDER.workers.dev";
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ago = (iso) => {
+  const d = (Date.now() - Date.parse(iso)) / 86400000;
+  return d < 1 ? "today" : d < 2 ? "yesterday" : Math.floor(d) + "d ago";
+};
+fetch(API + "/v1/leaderboard")
+  .then((r) => r.json())
+  .then(({ count, entries }) => {
+    const el = document.getElementById("content");
+    if (!entries || entries.length === 0) {
+      el.innerHTML = '<div class="state">Nobody here yet. Be the first — see below.</div>';
+      return;
+    }
+    el.innerHTML = `<table><thead><tr><th></th><th>handle</th><th class="num">overall</th><th class="num">unaided reps</th><th class="num">last update</th></tr></thead><tbody>` +
+      entries.map((e, i) =>
+        `<tr><td class="rank">${i + 1}</td><td>${esc(e.handle)}</td><td class="num"><b>${Math.round(e.overall)}</b></td><td class="num">${e.reps}</td><td class="num">${ago(e.updated_at)}</td></tr>`,
+      ).join("") +
+      `</tbody></table><div class="note">${count} ${count === 1 ? "entry" : "entries"} total.</div>`;
+  })
+  .catch(() => {
+    document.getElementById("content").innerHTML = '<div class="state">Leaderboard unreachable — try again in a minute.</div>';
+  });
+</script>
+</body>
+</html>

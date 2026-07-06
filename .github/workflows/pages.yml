@@ -30,6 +30,7 @@ jobs:
           mkdir -p _site
           cp dashboard/index.html _site/index.html
           cp dashboard/demo-data.json _site/data.json
+          cp dashboard/leaderboard.html _site/leaderboard.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
