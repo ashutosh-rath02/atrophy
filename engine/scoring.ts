@@ -22,6 +22,11 @@ const RD_GROWTH_C = Math.sqrt((MAX_RD ** 2 - MIN_RD ** 2) / 60);
 /** How much a completed rep tightens the deviation. */
 const RD_SHRINK_FACTOR = 0.85;
 
+/** One rep's worth of confidence tightening (shared by updates and replays). */
+export function shrinkRd(rd: number): number {
+  return Math.max(MIN_RD, rd * RD_SHRINK_FACTOR);
+}
+
 /** Effective opponent rating per difficulty tier. */
 export const TIER_RATING: Record<number, number> = { 1: 1000, 2: 1200, 3: 1400 };
 
@@ -64,8 +69,7 @@ export function expectedScore(rating: number, tier: number): number {
 export function updateRating(state: RatingState, tier: number, score: number): RatingState {
   const k = state.reps < K_SWITCH_REPS ? K_EARLY : K_LATE;
   const rating = state.rating + k * (score - expectedScore(state.rating, tier));
-  const rd = Math.max(MIN_RD, state.rd * RD_SHRINK_FACTOR);
-  return { rating, rd, reps: state.reps + 1 };
+  return { rating, rd: shrinkRd(state.rd), reps: state.reps + 1 };
 }
 
 /** Widen RD for idle time. Rating is untouched — we lose confidence, not skill. */
