@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pc from "picocolors";
 import { AXES, loadBank, type Axis, type Exercise, type Language } from "../bank/schema.js";
+import { buildPayload, startServer } from "./serve.js";
 import { selectExercise } from "../engine/select.js";
 import { runDrill } from "../engine/session.js";
 import {
@@ -173,13 +174,18 @@ function stats(store: Store): void {
   console.log();
 }
 
+function dashboardHtmlPath(): string {
+  const candidates = [
+    join(__dirname, "..", "dashboard", "index.html"), // tsx dev: cli/../dashboard
+    join(__dirname, "..", "..", "dashboard", "index.html"), // built: dist/cli/../../dashboard
+  ];
+  const found = candidates.find((c) => existsSync(c));
+  if (!found) throw new Error("dashboard/index.html not found");
+  return found;
+}
+
 function exportJson(store: Store, out?: string): void {
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    ratings: store.allRatings(),
-    sessions: store.allSessions(),
-  };
-  const json = JSON.stringify(payload, null, 2);
+  const json = JSON.stringify(buildPayload(store), null, 2);
   if (out) {
     writeFileSync(out, json, "utf8");
     console.log(`wrote ${out}`);
@@ -248,6 +254,18 @@ program
     } finally {
       store.close();
     }
+  });
+
+program
+  .command("serve")
+  .description("serve the decay dashboard locally (reads live data on refresh)")
+  .option("-p, --port <port>", "port on 127.0.0.1", "4646")
+  .action(async (flags: { port: string }) => {
+    const store = new Store();
+    const port = Number.parseInt(flags.port, 10);
+    await startServer(store, dashboardHtmlPath(), port);
+    console.log(pc.bold("\n  Atrophy dashboard: ") + pc.cyan(`http://127.0.0.1:${port}`));
+    console.log(pc.dim("  Ctrl+C to stop. Data refreshes from SQLite on every reload.\n"));
   });
 
 program
