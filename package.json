@@ -1,6 +1,6 @@
 {
   "name": "atrophy",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Measure what your brain is losing while AI does your work. Unaided-skill baselines, decay curves, and scheduled reliance drills for developers.",
   "type": "module",
   "bin": {
