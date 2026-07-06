@@ -29,6 +29,7 @@
     "dev": "tsx cli/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "seed:demo": "tsx scripts/seed-demo.mts",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "keywords": [
