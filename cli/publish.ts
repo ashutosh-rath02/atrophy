@@ -45,12 +45,13 @@ interface Config {
 }
 
 function configPath(): string {
-  return join(homedir(), ".atrophy", "config.json");
+  return process.env.ATROPHY_CONFIG ?? join(homedir(), ".atrophy", "config.json");
 }
 
 function readConfig(): Config {
   try {
-    return JSON.parse(readFileSync(configPath(), "utf8")) as Config;
+    // tolerate a UTF-8 BOM (hand-edited or PowerShell-written configs)
+    return JSON.parse(readFileSync(configPath(), "utf8").replace(/^﻿/, "")) as Config;
   } catch {
     return {};
   }
@@ -61,10 +62,67 @@ function writeConfig(config: Config): void {
   writeFileSync(configPath(), JSON.stringify(config, null, 2), "utf8");
 }
 
+/** Registered for the leaderboard = auto-sync after every unaided drill. */
+export function isRegistered(): boolean {
+  const lb = readConfig().leaderboard;
+  return Boolean(lb?.token && lb.handle);
+}
+
+/**
+ * Fire-and-mostly-forget sync after a drill: quiet on success, quieter on
+ * failure — a dead network must never get between the user and their rep.
+ */
+export async function autoSync(store: Store): Promise<void> {
+  const lb = readConfig().leaderboard;
+  if (!lb?.token || !lb.handle) return;
+  const snap = buildSnapshot(store);
+  const url = process.env.ATROPHY_LEADERBOARD_URL ?? lb.url ?? DEFAULT_LEADERBOARD_URL;
+  try {
+    const res = await fetch(`${url}/v1/publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: lb.token, handle: lb.handle, ...snap }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      console.log(pc.dim(`  leaderboard synced · ${lb.handle} · overall ${Math.round(snap.overall)}`));
+    } else {
+      console.log(pc.dim(`  (leaderboard sync skipped: HTTP ${res.status})`));
+    }
+  } catch {
+    console.log(pc.dim("  (leaderboard sync skipped: offline)"));
+  }
+}
+
+/** One dim line nudging eligible-but-unregistered users toward the board. */
+export function maybePrintPublishHint(store: Store): void {
+  const snap = buildSnapshot(store);
+  if (snap.reps >= MIN_REPS_TO_PUBLISH) {
+    console.log(
+      pc.dim("  join the leaderboard (auto-syncs after every drill): ") +
+        pc.cyan("atrophy publish --handle you"),
+    );
+  }
+}
+
 export async function publishCommand(
   store: Store,
-  opts: { handle?: string; url?: string },
+  opts: { handle?: string; url?: string; stop?: boolean },
 ): Promise<void> {
+  if (opts.stop) {
+    const config = readConfig();
+    if (config.leaderboard) {
+      delete config.leaderboard;
+      writeConfig(config);
+      console.log(
+        "auto-sync stopped; your existing entry stays on the board " +
+          pc.dim("(open an issue on the repo to have it deleted)"),
+      );
+    } else {
+      console.log(pc.dim("you weren't registered — nothing to stop"));
+    }
+    return;
+  }
   const snap = buildSnapshot(store);
   if (snap.reps < MIN_REPS_TO_PUBLISH) {
     console.error(

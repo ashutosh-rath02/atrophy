@@ -7,7 +7,7 @@ import pc from "picocolors";
 import { allGenerators } from "../bank/generators/index.js";
 import { AXES, loadBank, type Axis, type Exercise, type Language } from "../bank/schema.js";
 import { buildPayload, startServer } from "./serve.js";
-import { publishCommand } from "./publish.js";
+import { autoSync, isRegistered, maybePrintPublishHint, publishCommand } from "./publish.js";
 import { selectExercise } from "../engine/select.js";
 import { runDrill } from "../engine/session.js";
 import {
@@ -124,6 +124,12 @@ async function drillOnce(store: Store, flags: DrillFlags): Promise<boolean> {
       ` · ${axis} rating ${current.rating.toFixed(0)} → ${pc.bold(after.rating.toFixed(0))} (${deltaStr})` +
       (mode === "ai-on" ? pc.dim("  [ai-on: recorded, rating untouched]") : ""),
   );
+
+  // registered users sync to the leaderboard automatically after every rep
+  if (mode === "ai-off") {
+    if (isRegistered()) await autoSync(store);
+    else maybePrintPublishHint(store);
+  }
   return true;
 }
 
@@ -292,10 +298,11 @@ program
 
 program
   .command("publish")
-  .description("opt-in: post your ratings to the public leaderboard under a handle")
+  .description("opt in to the public leaderboard; afterwards every drill auto-syncs")
   .option("--handle <name>", "public handle (3-20 chars; saved after first publish)")
   .option("--url <url>", "leaderboard API override")
-  .action(async (flags: { handle?: string; url?: string }) => {
+  .option("--stop", "stop auto-syncing (your entry stays until you ask for deletion)")
+  .action(async (flags: { handle?: string; url?: string; stop?: boolean }) => {
     const store = new Store();
     try {
       await publishCommand(store, flags);
