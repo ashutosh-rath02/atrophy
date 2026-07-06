@@ -7,6 +7,7 @@ import pc from "picocolors";
 import { allGenerators } from "../bank/generators/index.js";
 import { AXES, loadBank, type Axis, type Exercise, type Language } from "../bank/schema.js";
 import { buildPayload, startServer } from "./serve.js";
+import { publishCommand } from "./publish.js";
 import { selectExercise } from "../engine/select.js";
 import { runDrill } from "../engine/session.js";
 import {
@@ -287,6 +288,20 @@ program
     await startServer(store, dashboardHtmlPath(), port);
     console.log(pc.bold("\n  Atrophy dashboard: ") + pc.cyan(`http://127.0.0.1:${port}`));
     console.log(pc.dim("  Ctrl+C to stop. Data refreshes from SQLite on every reload.\n"));
+  });
+
+program
+  .command("publish")
+  .description("opt-in: post your ratings to the public leaderboard under a handle")
+  .option("--handle <name>", "public handle (3-20 chars; saved after first publish)")
+  .option("--url <url>", "leaderboard API override")
+  .action(async (flags: { handle?: string; url?: string }) => {
+    const store = new Store();
+    try {
+      await publishCommand(store, flags);
+    } finally {
+      store.close();
+    }
   });
 
 program
