@@ -400,7 +400,9 @@ function render(data) {
 let lastData = null;
 async function init() {
   try {
-    const res = await fetch("/data.json", { cache: "no-store" });
+    // relative: resolves to /data.json under `atrophy serve` and to
+    // ./data.json when hosted under a subpath (e.g. GitHub Pages demo)
+    const res = await fetch("data.json", { cache: "no-store" });
     if (!res.ok) throw new Error(res.statusText);
     lastData = await res.json();
     render(lastData);
