@@ -13,7 +13,7 @@
     "docs/research.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "author": "Ashutosh Rath <ashutosh123rath@gmail.com>",
   "repository": {

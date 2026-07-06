@@ -21,7 +21,7 @@ Atrophy gives you a personal **unaided-skill baseline** and a **decay curve** �
 
 ## Install & run
 
-Requires Node ≥ 20. Python 3 on `PATH` for the Python exercises.
+Requires Node ≥ 22 (Node 20 is EOL and better-sqlite3 no longer ships prebuilds for it). Python 3 on `PATH` for the Python exercises.
 
 ```sh
 npm install
