@@ -12,6 +12,7 @@ import { detectAssistants } from "../engine/guard.js";
 import { resolveExercise, selectExercise } from "../engine/select.js";
 import { previewExercise, runDrill } from "../engine/session.js";
 import { computeStreak } from "../engine/streak.js";
+import { detectRegression, detectRegressions, type Regression } from "../engine/regression.js";
 import {
   freshness,
   nextTier,
@@ -174,12 +175,28 @@ async function drillOnce(store: Store, flags: DrillFlags): Promise<boolean> {
       (mode === "ai-on" ? pc.dim("  [ai-on: recorded, rating untouched]") : ""),
   );
 
+  // Proactive decline signal: did this axis just fall well below its recent peak?
+  if (mode === "ai-off") {
+    const reg = detectRegression(store.allSessions(), axis);
+    if (reg) console.log(pc.red(`\n▼ ${formatRegression(reg)}`));
+  }
+
   // registered users sync to the leaderboard automatically after every rep
   if (mode === "ai-off") {
     if (isRegistered()) await autoSync(store);
     else maybePrintPublishHint(store);
   }
   return true;
+}
+
+/** One honest line describing a decline, shared by the drill summary and stats. */
+function formatRegression(reg: Regression): string {
+  const days = Math.max(1, Math.round((Date.parse(reg.toTs) - Date.parse(reg.fromTs)) / 86_400_000));
+  return (
+    `${reg.axis} is down ${reg.drop.toFixed(0)} pts from its recent peak ` +
+    `(${reg.fromRating.toFixed(0)} → ${reg.toRating.toFixed(0)}, over ~${days}d). ` +
+    `A couple of unaided reps turns it around.`
+  );
 }
 
 const FRESHNESS_BADGE: Record<Freshness, string> = {
@@ -236,6 +253,9 @@ function stats(store: Store): void {
         pc.yellow(`  ⚠ ${Math.floor(idleDays)} days since your last unaided rep.`) +
           pc.dim(" 2-3x/week keeps the baseline honest - run ") + pc.cyan("atrophy drill") + pc.dim("."),
       );
+    }
+    for (const reg of detectRegressions(store.allSessions())) {
+      console.log(pc.red(`  ▼ ${formatRegression(reg)}`));
     }
   }
   console.log();

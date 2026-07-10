@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
+import { detectRegressions } from "../engine/regression.js";
 import { computeStreak } from "../engine/streak.js";
 import { buildTimelines } from "../engine/timeline.js";
 import type { Store } from "../store/db.js";
@@ -13,6 +14,7 @@ export function buildPayload(store: Store): object {
     sessions,
     timelines: buildTimelines(sessions),
     streak: computeStreak(sessions),
+    regressions: detectRegressions(sessions),
   };
 }
 

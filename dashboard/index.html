@@ -96,6 +96,8 @@
   code { background: var(--page); border: 1px solid var(--grid); border-radius: 4px; padding: 1px 6px; font-size: 12.5px; }
   .note { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
   #fileFallback { display: none; margin-top: 14px; }
+  .banner { background: rgba(214,64,64,0.10); border: 1px solid rgba(214,64,64,0.38); border-radius: 10px; padding: 12px 16px; margin-top: 20px; font-size: 13px; color: var(--ink); }
+  .banner strong { font-weight: 650; }
 </style>
 </head>
 <body>
@@ -319,6 +321,15 @@ function render(data) {
   if (!sessions.length) {
     div("empty", `<div class="big">No reps yet.</div>Run <code>atrophy baseline</code> to set your unaided baseline, then come back.`, content);
     return;
+  }
+
+  // Regression banner (the proactive "scary chart" nudge)
+  const regressions = data.regressions || [];
+  if (regressions.length) {
+    const items = regressions
+      .map((r) => `<strong>${esc(r.axis)}</strong> down ${Math.round(r.drop)} pts (${Math.round(r.fromRating)} → ${Math.round(r.toRating)})`)
+      .join(" · ");
+    div("banner", `▼ Recent decline: ${items}. A couple of unaided reps turns it around.`, content);
   }
 
   // KPI tiles
