@@ -19,7 +19,8 @@ import {
   type Freshness,
   type RatingState,
 } from "../engine/scoring.js";
-import { Store } from "../store/db.js";
+import { Store, defaultDbPath } from "../store/db.js";
+import { runDoctor } from "./doctor.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -376,6 +377,19 @@ program
     } finally {
       store.close();
     }
+  });
+
+program
+  .command("doctor")
+  .description("diagnose your setup: runtime, editor, sandbox, exercise bank, database")
+  .action(async () => {
+    let bd: string | null;
+    try {
+      bd = bankDir();
+    } catch {
+      bd = null;
+    }
+    process.exitCode = await runDoctor({ bankDir: bd, dbPath: defaultDbPath() });
   });
 
 program.parseAsync().catch((err) => {
