@@ -22,6 +22,7 @@ import {
 } from "../engine/scoring.js";
 import { Store, defaultDbPath } from "../store/db.js";
 import { runDoctor } from "./doctor.js";
+import { reportCommand } from "./report.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -461,6 +462,19 @@ program
     } catch (err) {
       console.error(pc.red(`reset failed: ${(err as Error).message}`));
       process.exitCode = 1;
+    } finally {
+      store.close();
+    }
+  });
+
+program
+  .command("report")
+  .description("a shareable summary of your baseline (Markdown, or an SVG card with --out *.svg)")
+  .option("-o, --out <file>", "write to a file (.svg renders a card, otherwise Markdown)")
+  .action((flags: { out?: string }) => {
+    const store = new Store();
+    try {
+      reportCommand(store, flags);
     } finally {
       store.close();
     }
