@@ -1,0 +1,19 @@
+{
+  "id": "dbg-py-006",
+  "kind": "fix",
+  "axis": "debugging",
+  "language": "python",
+  "tier": 2,
+  "title": "first_present falls for blanks",
+  "prompt": "first_present(values) should return the first usable string in values after trimming whitespace,\nor None if there isn't one. values itself may be None, and entries may be None,\nempty, or whitespace-only. It keeps grabbing blanks and crashes on None input.\nFind and fix the bug.",
+  "functionName": "first_present",
+  "starterCode": "def first_present(values):\n    for value in values:\n        if value:\n            return value.strip()\n    return None\n",
+  "softTimeLimitSeconds": 420,
+  "tests": [
+    { "args": [null], "expected": null },
+    { "args": [[]], "expected": null },
+    { "args": [[null, "", "   ", "\t", "  hi  ", "later"]], "expected": "hi" },
+    { "args": [["  ok  ", "no"]], "expected": "ok" },
+    { "args": [["   ", " x ", " y "]], "expected": "x" }
+  ]
+}
